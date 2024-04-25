@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Homework Tracker</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js">
+<style>
+  body { font-family: Arial, sans-serif; }
+  .container { display: flex; max-width: 1000px; margin: auto; padding: 20px; }
+  .main { flex-grow: 1; padding: 20px; }
+  .sidebar { width: 200px; padding: 20px; background-color: #f4f4f4; }
+  input, button { padding: 10px; margin: 5px; }
+  ul { padding: 0; }
+  li { list-style-type: none; margin-bottom: 10px; }
+  .counter { margin-left: 15px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="sidebar">
+    <h3>Classrooms</h3>
+    <input type="text" id="classroomName" placeholder="Classroom Name">
+    <button onclick="saveClassroom()">Save Classroom</button>
+    <ul id="classroomList"></ul>
+  </div>
+  <div class="main">
+    <h1>Homework Tracker</h1>
+    <input type="text" id="studentName" placeholder="Enter student names" autofocus>
+    <button onclick="addStudent()">Add Student</button>
+    <button onclick="exportToExcel()">Export to Excel</button>
+    <ul id="studentList"></ul>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+<script>
+let classrooms = JSON.parse(localStorage.getItem('classrooms')) || {};
+let currentClass = '';
+
+function addStudent() {
+  const input = document.getElementById('studentName').value;
+  const names = input.split(',').map(name => name.trim()).filter(name => name !== '');
+  if (!currentClass) {
+    alert('Please save the current classroom first.');
+    return;
+  }
+  if (!classrooms[currentClass]) {
+    classrooms[currentClass] = [];
+  }
+  names.forEach(name => {
+    if (name) {
+      const student = { name, count: 0 };
+      classrooms[currentClass].push(student);
+    }
+  });
+  updateList();
+  document.getElementById('studentName').value = '';
+}
+
+function updateList() {
+  const list = document.getElementById('studentList');
+  list.innerHTML = '';
+  if (classrooms[currentClass]) {
+    classrooms[currentClass].forEach((student, index) => {
+      const item = document.createElement('li');
+      item.innerHTML = `${student.name} <button onclick="changeCount(${index}, 1)">+</button> <span class="counter">${student.count}</span> <button onclick="changeCount(${index}, -1)">-</button>`;
+      list.appendChild(item);
+    });
+  }
+}
+
+function changeCount(index, delta) {
+  const student = classrooms[currentClass][index];
+  student.count += delta;
+  if (student.count < 0) student.count = 0;
+  updateList();
+}
+
+function saveClassroom() {
+  const name = document.getElementById('classroomName').value.trim();
+  if (name) {
+    currentClass = name;
+    classrooms[currentClass] = classrooms[currentClass] || [];
+    updateClassroomList();
+    updateList();
+    document.getElementById('classroomName').value = '';
+  }
+}
+
+function updateClassroomList() {
+  const list = document.getElementById('classroomList');
+  list.innerHTML = '';
+  Object.keys(classrooms).forEach((classroom) => {
+    const item = document.createElement('li');
+    item.innerHTML = `<button onclick="loadClassroom('${classroom}')">${classroom}</button>`;
+    list.appendChild(item);
+  });
+  localStorage.setItem('classrooms', JSON.stringify(classrooms));
+}
+
+function loadClassroom(name) {
+  currentClass = name;
+  updateList();
+}
+
+function exportToExcel() {
+  if (!currentClass || !classrooms[currentClass]) {
+    alert('Please select a classroom to export.');
+    return;
+  }
+
+  const ws = XLSX.utils.json_to_sheet(classrooms[currentClass]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Homework Data");
+  XLSX.writeFile(wb, `${currentClass}_Homework_Tracker.xlsx`);
+}
+
+
+window.onload = function() {
+  updateClassroomList();
+  if (Object.keys(classrooms).length > 0) {
+    loadClassroom(Object.keys(classrooms)[0]); // Load the first classroom on start
+  }
+};
+</script>
+</body>
+</html>
